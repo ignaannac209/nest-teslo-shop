@@ -1,6 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { InternalServerErrorException, Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { ProductsService } from './../products/products.service';
 import { initialData } from './data/seed-data';
 import { User } from '../auth/entities/user.entity';
@@ -11,6 +13,7 @@ export class SeedService {
 
   constructor(
     private readonly productsService: ProductsService,
+    private readonly configService: ConfigService,
 
     @InjectRepository( User )
     private readonly userRepository: Repository<User>
@@ -19,8 +22,9 @@ export class SeedService {
 
   async runSeed() {
 
+    const adminCredentials = this.getAdminCredentials();
     await this.deleteTables();
-    const adminUser = await this.insertUsers();
+    const adminUser = await this.insertAdminUser(adminCredentials);
 
     await this.insertNewProducts( adminUser );
 
@@ -39,19 +43,31 @@ export class SeedService {
 
   }
 
-  private async insertUsers() {
+  private getAdminCredentials(): { email: string; password: string } {
+    const email = this.configService.get<string>('SEED_ADMIN_EMAIL')?.trim();
+    const password = this.configService.get<string>('SEED_ADMIN_PASSWORD');
 
-    const seedUsers = initialData.users;
-    
-    const users: User[] = [];
+    if (!email || !password || password.length < 6) {
+      throw new InternalServerErrorException(
+        'Configure SEED_ADMIN_EMAIL and a SEED_ADMIN_PASSWORD of at least 6 characters before running the seed.',
+      );
+    }
 
-    seedUsers.forEach( user => {
-      users.push( this.userRepository.create( user ) )
+    return { email, password };
+  }
+
+  private async insertAdminUser(credentials: {
+    email: string;
+    password: string;
+  }): Promise<User> {
+    const admin = this.userRepository.create({
+      email: credentials.email,
+      fullName: 'Seed Administrator',
+      password: await bcrypt.hash(credentials.password, 10),
+      roles: ['admin'],
     });
 
-    const dbUsers = await this.userRepository.save( seedUsers )
-
-    return dbUsers[0];
+    return this.userRepository.save(admin);
   }
 
 

@@ -12,7 +12,7 @@ export class SeedController {
   constructor(private readonly seedService: SeedService) {}
 
   @Get()
-  // @Auth( ValidRoles.admin )
+  @Auth(ValidRoles.admin)
   @ApiOperation({
     summary: 'Destruye y crea una nueva base de datos',
     description:
