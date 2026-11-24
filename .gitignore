@@ -5,6 +5,15 @@
 postgres/
 
 .env
+.env.*
+!.env.example
+!.env.template
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
 
 
 # Logs
